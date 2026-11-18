@@ -1,0 +1,13 @@
+{
+  "name": "jalon",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": ["packages/*", "apps/*"],
+  "scripts": {
+    "dev": "npm run dev -w apps/local",
+    "dev:server": "cargo run -p chantier-devserver -- ./.dev-config",
+    "test": "npm run test -w packages/core && cargo test -p chantier-store",
+    "typecheck": "tsc -p packages/core && tsc -p packages/ui && tsc -p apps/local",
+    "tauri": "npm run tauri -w apps/local"
+  }
+}

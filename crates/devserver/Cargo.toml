@@ -1,0 +1,12 @@
+[package]
+name = "chantier-devserver"
+version = "1.0.0"
+edition = "2021"
+publish = false
+description = "Serveur de développement : expose le moteur de stockage en HTTP pour tester l'interface dans un navigateur"
+
+[dependencies]
+chantier-store = { path = "../store" }
+axum = "0.8"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net"] }
+serde_json = { workspace = true }

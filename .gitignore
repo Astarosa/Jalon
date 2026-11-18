@@ -1,0 +1,6 @@
+node_modules
+target
+dist
+.dev-config
+apps/local/public/pdfjs
+apps/local/src-tauri/gen

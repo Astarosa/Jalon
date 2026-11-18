@@ -1,0 +1,19 @@
+[workspace]
+resolver = "2"
+members = ["crates/store", "crates/devserver"]
+# L'application Tauri est un projet Cargo séparé (il lui faut la WebView du système pour compiler).
+exclude = ["apps/local/src-tauri"]
+
+[workspace.dependencies]
+rusqlite = { version = "0.43", features = ["bundled"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.11"
+hex = "0.4"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

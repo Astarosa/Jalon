@@ -52,6 +52,9 @@ CREATE INDEX ix_visits_project ON visits(project_id);
 CREATE INDEX ix_cl_project ON checklists(project_id);
 CREATE INDEX ix_cli_cl ON checklist_items(checklist_id);
 `,
+  /* 2 — notes sur les mesures */ `
+ALTER TABLE measurements ADD COLUMN notes TEXT;
+`,
 ];
 
 /** Applique les migrations manquantes via un exécuteur de script SQL. */

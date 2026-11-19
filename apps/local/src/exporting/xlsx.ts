@@ -56,6 +56,7 @@ export async function exportXlsx(projectId: string): Promise<{ bytes: Uint8Array
           Échelle: r.calibration ? `1/${Math.round(ratioFromMpp(r.calibration.metres_par_point))}` : "non étalonné",
           "Zones mélangées": r.zonesMelangees ? "oui" : "",
           Point: m.ticket_id ? `#${tickets.find((t) => t.id === m.ticket_id)?.numero ?? ""}` : "",
+          Notes: m.notes ?? "",
         });
       }
     }

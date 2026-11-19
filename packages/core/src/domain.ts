@@ -8,19 +8,28 @@ export const TICKET_TYPES = {
 export type TicketType = keyof typeof TICKET_TYPES;
 
 export const STATUTS = {
-  ouvert: { label: "Ouvert", couleur: "#d64545", ordre: 0 },
-  transmis: { label: "Transmis à l'entreprise", couleur: "#e08a1e", ordre: 1 },
-  leve: { label: "Levé (déclaré)", couleur: "#2f7dd1", ordre: 2 },
-  clos: { label: "Contrôlé / clos", couleur: "#2e9a5b", ordre: 3 },
+  ouvert: { label: "Ouvert", court: "Ouvert", action: "Rouvrir", couleur: "#d64545", ordre: 0 },
+  transmis: { label: "Transmis à l'entreprise", court: "Transmis", action: "Transmettre", couleur: "#e08a1e", ordre: 1 },
+  fabrication: { label: "Envoyé en fabrication", court: "Fabrication", action: "Envoyé en fabrication", couleur: "#8b5cf6", ordre: 2 },
+  pret_a_poser: { label: "Prêt à poser", court: "Prêt à poser", action: "Prêt à poser", couleur: "#0e9f9a", ordre: 3 },
+  pose: { label: "Posé", court: "Posé", action: "Posé", couleur: "#4361c2", ordre: 4 },
+  leve: { label: "Levé (déclaré)", court: "Levé", action: "Déclarer levé", couleur: "#2f7dd1", ordre: 5 },
+  clos: { label: "Contrôlé / clos", court: "Contrôlé", action: "Contrôler et clore", couleur: "#2e9a5b", ordre: 6 },
 } as const;
 export type Statut = keyof typeof STATUTS;
 export const STATUT_LIST = Object.keys(STATUTS) as Statut[];
-export const STATUTS_OUVERTS: Statut[] = ["ouvert", "transmis", "leve"];
+/** Statuts non clos (filtres par défaut, rapports « points à traiter »). */
+export const STATUTS_OUVERTS: Statut[] = ["ouvert", "transmis", "fabrication", "pret_a_poser", "pose", "leve"];
+/** Statuts où l'entreprise doit encore agir : seuls ceux-ci peuvent être « en retard ». */
+export const STATUTS_EN_ATTENTE: Statut[] = ["ouvert", "transmis", "fabrication", "pret_a_poser"];
 
-/** Transitions proposées depuis un statut (toutes restent possibles manuellement). */
+/** Statuts proposés en un clic depuis un statut (tous restent atteignables). */
 export const TRANSITIONS: Record<Statut, Statut[]> = {
-  ouvert: ["transmis", "leve", "clos"],
-  transmis: ["leve", "ouvert"],
+  ouvert: ["transmis", "fabrication", "pret_a_poser", "pose", "leve", "clos"],
+  transmis: ["fabrication", "pret_a_poser", "pose", "leve", "clos", "ouvert"],
+  fabrication: ["pret_a_poser", "pose", "leve", "clos", "ouvert"],
+  pret_a_poser: ["pose", "leve", "clos", "ouvert"],
+  pose: ["leve", "clos", "ouvert"],
   leve: ["clos", "ouvert"],
   clos: ["ouvert"],
 };
@@ -55,6 +64,6 @@ export const LOTS_TYPES = [
 ];
 
 export function isEnRetard(t: { echeance: string | null; statut: string }, today = new Date()): boolean {
-  if (!t.echeance || t.statut === "clos" || t.statut === "leve") return false;
+  if (!t.echeance || !STATUTS_EN_ATTENTE.includes(t.statut as Statut)) return false;
   return t.echeance < today.toISOString().slice(0, 10);
 }

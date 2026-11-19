@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  STATUTS, STATUT_LIST, TICKET_TYPES, calibrationAt, measure, formatMeasure, formatLength, calibrateTwoPoints, distRel,
+  STATUTS, STATUT_LIST, STATUTS_OUVERTS, TICKET_TYPES, calibrationAt, measure, formatMeasure, formatLength, calibrateTwoPoints, distRel,
   ratioFromMpp, isEnRetard, type Pt, type Rect, type Statut, type SnapIndex, type MeasureType,
 } from "@chantier/core";
 import { Icon, PlanViewer, Progress, StatusBadge, useUi, type Tool, type ViewerMeasure, type ViewerPin, type ViewerZone, type ViewerLine } from "@chantier/ui";
@@ -190,7 +190,7 @@ export function PlanScreen({ projectId, planId, versionId, ticketId }: { project
   const prevVersions = versionsSorted.filter((v) => v.id !== versionId && v.created_at < (version?.created_at ?? ""));
   const pendingOnOld = useData(async () => {
     let n = 0;
-    for (const v of prevVersions) n += (await listTickets({ projectId, planVersionId: v.id, statuts: ["ouvert", "transmis", "leve"] })).length;
+    for (const v of prevVersions) n += (await listTickets({ projectId, planVersionId: v.id, statuts: STATUTS_OUVERTS })).length;
     return n;
   }, [versionId, versions.length, tickets?.length]);
 
@@ -238,7 +238,7 @@ export function PlanScreen({ projectId, planId, versionId, ticketId }: { project
                       return (
                         <button key={s} className="badge" style={{ border: 0, cursor: "pointer", background: on ? STATUTS[s].couleur : "var(--paper-2)", color: on ? "#fff" : "var(--ink-2)" }}
                           onClick={() => setFilter({ ...filter, statuts: on ? filter.statuts.filter((x) => x !== s) : [...filter.statuts, s] })}>
-                          {STATUTS[s].label.split(" ")[0]}
+                          {STATUTS[s].court}
                         </button>
                       );
                     })}

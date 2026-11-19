@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { formatArea, formatLength, measure, ratioFromMpp, type Dims, type MeasureType, type Ticket } from "@chantier/core";
-import { Field, Icon, useUi } from "@chantier/ui";
+import { ColorPicker, Field, Icon, useUi } from "@chantier/ui";
 import { deleteMeasurement, saveMeasurement, type Calibration, type MeasurementP } from "../data/repo";
 
 const COLORS = ["#e8590c", "#1e5aa8", "#2e9a5b", "#9333ea", "#c73a3a", "#17202a"];
@@ -11,8 +11,12 @@ export function MeasurePanel({ id, measures, dims, cals, tickets, onClose }: {
 }) {
   const m = measures.find((x) => x.id === id);
   const [libelle, setLibelle] = useState(m?.libelle ?? "");
+  const [notes, setNotes] = useState(m?.notes ?? "");
   const ui = useUi();
-  useEffect(() => setLibelle(m?.libelle ?? ""), [m?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    setLibelle(m?.libelle ?? "");
+    setNotes(m?.notes ?? "");
+  }, [m?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!m) return null;
   const r = measure(m.type as MeasureType, m.pts, dims, cals);
   const upd = (patch: Partial<MeasurementP>) => saveMeasurement({ ...m, ...patch, pts: patch.pts ?? m.pts });
@@ -35,14 +39,19 @@ export function MeasurePanel({ id, measures, dims, cals, tickets, onClose }: {
         </div>
         {r.zonesMelangees && <div className="callout warn">Les points de cette mesure sont dans des zones d'échelles différentes : la valeur utilise l'échelle du premier point.</div>}
         <Field label="Libellé"><input className="input" value={libelle} placeholder="ex. Fissure façade nord" onChange={(e) => setLibelle(e.target.value)} onBlur={() => libelle !== (m.libelle ?? "") && upd({ libelle: libelle || null })} /></Field>
-        <Field label="Couleur">
-          <div className="row">{COLORS.map((c) => <span key={c} className={`swatch ${(m.couleur ?? "#e8590c") === c ? "on" : ""}`} style={{ background: c }} onClick={() => upd({ couleur: c })} />)}</div>
-        </Field>
+        <div className="field">
+          <span>Couleur</span>
+          <ColorPicker value={m.couleur ?? "#e8590c"} presets={COLORS} onChange={(c) => upd({ couleur: c })} />
+        </div>
         <Field label="Rattacher à un point" hint="reprise dans les rapports">
           <select className="select" value={m.ticket_id ?? ""} onChange={(e) => upd({ ticket_id: e.target.value || null })}>
             <option value="">—</option>
             {tickets.map((t) => <option key={t.id} value={t.id}>#{t.numero} {t.titre}</option>)}
           </select>
+        </Field>
+        <Field label="Notes" hint="reprises dans les rapports">
+          <textarea className="textarea" rows={4} value={notes} placeholder="ex. Carrelage à reprendre, prévoir 10 % de chutes"
+            onChange={(e) => setNotes(e.target.value)} onBlur={() => notes !== (m.notes ?? "") && upd({ notes: notes || null })} />
         </Field>
         <div className="small muted">{m.pts.length} sommet(s). Les valeurs sont recalculées si l'étalonnage change.</div>
         <div className="row end">

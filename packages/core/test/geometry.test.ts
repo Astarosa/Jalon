@@ -99,6 +99,15 @@ describe("échelle PDF", () => {
   });
 });
 
+describe("statuts", () => {
+  it("retard seulement tant que l'entreprise doit agir", async () => {
+    const { isEnRetard } = await import("../src");
+    const d = new Date("2026-11-20T12:00:00");
+    for (const st of ["ouvert", "transmis", "fabrication", "pret_a_poser"]) expect(isEnRetard({ echeance: "2026-11-01", statut: st }, d)).toBe(true);
+    for (const st of ["pose", "leve", "clos"]) expect(isEnRetard({ echeance: "2026-11-01", statut: st }, d)).toBe(false);
+  });
+});
+
 describe("divers", () => {
   it("indices", () => {
     expect(nextIndice("A")).toBe("B");

@@ -15,7 +15,7 @@ export function ReportsTab({ projectId }: { projectId: string }) {
   const visits = useData(() => listVisits(projectId), [projectId]);
   const [companies, setCompanies] = useState<Set<string>>(new Set());
   const [statuts, setStatuts] = useState<string[]>(STATUTS_OUVERTS);
-  const [opts, setOpts] = useState({ planExtracts: true, photos: true, maxPhotos: 3 });
+  const [opts, setOpts] = useState({ planExtracts: true, photos: true, maxPhotos: 3, mesures: true });
   const [visitId, setVisitId] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [done, setDone] = useState<Done[]>([]);
@@ -68,6 +68,7 @@ export function ReportsTab({ projectId }: { projectId: string }) {
           <div className="row wrap" style={{ gap: 12 }}>
             <label className="check small"><input type="checkbox" checked={opts.planExtracts} onChange={(e) => setOpts({ ...opts, planExtracts: e.target.checked })} />Extraits de plan</label>
             <label className="check small"><input type="checkbox" checked={opts.photos} onChange={(e) => setOpts({ ...opts, photos: e.target.checked })} />Photos</label>
+            <label className="check small"><input type="checkbox" checked={opts.mesures} onChange={(e) => setOpts({ ...opts, mesures: e.target.checked })} />Mesures (tracés et tableau)</label>
             <label className="small row">Photos par point <input type="number" min={1} max={6} className="input num" style={{ width: 60, height: 26 }} value={opts.maxPhotos} onChange={(e) => setOpts({ ...opts, maxPhotos: +e.target.value || 1 })} /></label>
           </div>
           <div className="row end">
@@ -90,7 +91,7 @@ export function ReportsTab({ projectId }: { projectId: string }) {
           <div className="card card-pad col">
             <h2><Icon name="layers" /> État du chantier</h2>
             <div className="small muted">Synthèse par lot et par entreprise, liste des points non clos.</div>
-            <div className="row end"><button className="btn" disabled={!!busy} onClick={() => run("etat", async () => { const r = await generateGlobalReport(projectId); return [{ label: r.name, path: r.path }]; })}><Icon name="pdf" />Générer</button></div>
+            <div className="row end"><button className="btn" disabled={!!busy} onClick={() => run("etat", async () => { const r = await generateGlobalReport(projectId, opts.mesures); return [{ label: r.name, path: r.path }]; })}><Icon name="pdf" />Générer</button></div>
           </div>
           <div className="card card-pad col">
             <h2><Icon name="sheet" /> Export Excel</h2>

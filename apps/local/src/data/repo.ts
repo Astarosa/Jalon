@@ -5,7 +5,7 @@ import {
   type Project, type Lot, type Company, type Plan, type PlanVersion, type PlanCalibration, type Measurement,
   type Ticket, type TicketEvent, type TicketPhoto, type Visit, type ChecklistTemplate, type Checklist,
   type ChecklistItem, type Rect, type Pt, type Dims, type Similarity, transferPoint, clamp01, STATUTS,
-  type Statut, type CalibrationLike,
+  type Statut, type CalibrationLike, STATUTS_EN_ATTENTE,
 } from "@chantier/core";
 import { db, bump } from "./db";
 
@@ -55,7 +55,7 @@ export async function projectStats(): Promise<Record<string, { total: number; ou
       pid: s.tickets.project_id,
       total: sql<number>`count(*)`,
       ouverts: sql<number>`sum(case when ${s.tickets.statut} != 'clos' then 1 else 0 end)`,
-      retard: sql<number>`sum(case when ${s.tickets.statut} in ('ouvert','transmis') and ${s.tickets.echeance} < ${today} then 1 else 0 end)`,
+      retard: sql<number>`sum(case when ${inArray(s.tickets.statut, STATUTS_EN_ATTENTE)} and ${s.tickets.echeance} < ${today} then 1 else 0 end)`,
     })
     .from(s.tickets)
     .where(isNull(s.tickets.deleted_at))
@@ -313,7 +313,7 @@ export async function listTickets(f: TicketFilter): Promise<Ticket[]> {
   if (f.companyId) conds.push(eq(s.tickets.company_id, f.companyId));
   if (f.visitId) conds.push(eq(s.tickets.visit_id, f.visitId));
   if (f.type) conds.push(eq(s.tickets.type, f.type));
-  if (f.enRetard) conds.push(sql`${s.tickets.statut} in ('ouvert','transmis') and ${s.tickets.echeance} < ${todayIso()}`);
+  if (f.enRetard) conds.push(and(inArray(s.tickets.statut, STATUTS_EN_ATTENTE), sql`${s.tickets.echeance} < ${todayIso()}`)!);
   if (f.texte?.trim()) {
     const like = `%${f.texte.trim().toLowerCase()}%`;
     conds.push(sql`(lower(${s.tickets.titre}) like ${like} or lower(coalesce(${s.tickets.description},'')) like ${like} or lower(coalesce(${s.tickets.localisation},'')) like ${like} or cast(${s.tickets.numero} as text) = ${f.texte.trim().replace("#", "")})`);

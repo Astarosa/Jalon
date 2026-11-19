@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { STATUTS, STATUT_LIST, TICKET_TYPES, PRIORITES, formatDateFr, isEnRetard, type Statut, type Ticket } from "@chantier/core";
+import { STATUTS, STATUT_LIST, STATUTS_OUVERTS, TICKET_TYPES, PRIORITES, formatDateFr, isEnRetard, type Statut, type Ticket } from "@chantier/core";
 import { Field, Icon, LotChip, Modal, StatusBadge, Tabs, useUi } from "@chantier/ui";
 import { deleteProject, getProject, listAssignments, listLots, listPlans, listTickets, listVisits, setStatut, updateProject } from "../data/repo";
 import { useData } from "../data/useData";
@@ -49,7 +49,7 @@ function PointsTab({ projectId }: { projectId: string }) {
   const assignments = useData(() => listAssignments(projectId), [projectId]);
   const plans = useData(() => listPlans(projectId), [projectId]);
   const visits = useData(() => listVisits(projectId), [projectId]);
-  const [f, setF] = useState({ statuts: ["ouvert", "transmis", "leve"] as string[], lot: "", company: "", type: "", visit: "", retard: false, texte: "" });
+  const [f, setF] = useState({ statuts: [...STATUTS_OUVERTS] as string[], lot: "", company: "", type: "", visit: "", retard: false, texte: "" });
   const tickets = useData(() => listTickets({
     projectId, statuts: f.statuts, lotId: f.lot || null, companyId: f.company || null, type: f.type || null, visitId: f.visit || null, enRetard: f.retard, texte: f.texte,
   }), [projectId, JSON.stringify(f)]);
@@ -81,7 +81,7 @@ function PointsTab({ projectId }: { projectId: string }) {
         {STATUT_LIST.map((s) => {
           const on = f.statuts.includes(s);
           return <button key={s} className="badge" style={{ border: 0, cursor: "pointer", height: 26, background: on ? STATUTS[s].couleur : "var(--paper-2)", color: on ? "#fff" : "var(--ink-2)" }}
-            onClick={() => setF({ ...f, statuts: on ? f.statuts.filter((x) => x !== s) : [...f.statuts, s] })}>{STATUTS[s].label}</button>;
+            onClick={() => setF({ ...f, statuts: on ? f.statuts.filter((x) => x !== s) : [...f.statuts, s] })}>{STATUTS[s].court}</button>;
         })}
         <select className="select" style={{ width: 160 }} value={f.lot} onChange={(e) => setF({ ...f, lot: e.target.value })}>
           <option value="">Tous les lots</option>{lots?.map((l) => <option key={l.id} value={l.id}>{l.nom}</option>)}
@@ -100,7 +100,7 @@ function PointsTab({ projectId }: { projectId: string }) {
       {sel.size > 0 && (
         <div className="row card" style={{ padding: "8px 12px", marginBottom: 10 }}>
           <b>{sel.size} sélectionné(s)</b><span className="grow" />
-          {STATUT_LIST.map((s) => <button key={s} className="btn sm" onClick={() => bulk(s)}>{STATUTS[s].label}</button>)}
+          {STATUT_LIST.map((s) => <button key={s} className="btn sm" onClick={() => bulk(s)}>{STATUTS[s].court}</button>)}
           <button className="btn sm ghost" onClick={() => setSel(new Set())}>Désélectionner</button>
         </div>
       )}

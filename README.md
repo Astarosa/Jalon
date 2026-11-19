@@ -14,13 +14,13 @@ Elle sert de solution d'attente avant le produit collaboratif (multi-utilisateur
 | Échelle | Lecture automatique de l'échelle intégrée au PDF (`/VP /Measure`), **saisie « 1/100 »**, **étalonnage sur deux points** avec loupe, **mesure de contrôle** et écart en % |
 | Zones d'étalonnage | Plusieurs échelles sur une même page (détail au 1/20, coupe…) : la plus petite zone contenant le point s'applique |
 | Accrochage | Les clics s'aimantent aux extrémités et milieux des traits vectoriels du PDF |
-| Mesures | Distance, longueur cumulée, surface + périmètre ; libellé, couleur, rattachement à un point ; recalcul automatique si l'étalonnage change |
-| Points | Réserves, observations, tâches ; statuts *Ouvert → Transmis → Levé → Contrôlé/clos* ; lot, entreprise, priorité, échéance, localisation ; historique et commentaires ; déplacement de l'épingle par glisser |
+| Mesures | Distance, longueur cumulée, surface + périmètre ; libellé, couleur (palette ou personnalisée : teinte, hexadécimal, RVB), notes, rattachement à un point ; recalcul automatique si l'étalonnage change |
+| Points | Réserves, observations, tâches ; statuts *Ouvert → Transmis → Envoyé en fabrication → Prêt à poser → Posé → Levé → Contrôlé/clos* ; lot, entreprise, priorité, échéance, localisation ; historique et commentaires ; déplacement de l'épingle par glisser |
 | Photos | Import par glisser-déposer, date EXIF, **annotation** (flèche, cercle, rectangle, trait, main levée, texte) |
 | Checklists | Modèles réutilisables, à ajouter à un point ou à une visite (conforme / non conforme / sans objet + note) |
 | Visites | Visite « en cours » qui rattache automatiquement les points créés ou modifiés pendant la tournée |
 | Nouvel indice | Report des points (et mesures) sur l'indice suivant, à position identique ou **recalé sur deux repères** (similitude) ; étalonnage repris si le format est identique |
-| Rapports PDF | Points à traiter **par entreprise** (extrait de plan localisé + photos), **compte rendu de visite**, **état du chantier** |
+| Rapports PDF | Points à traiter **par entreprise** (extrait de plan localisé + photos), **compte rendu de visite**, **état du chantier** ; mesures tracées sur les extraits et section « Mesures » (vue nette du plan par zone d'échelle + tableau avec notes) |
 | Exports | Excel (points, mesures, visites) ; **export complet .zip** (données + plans + photos), réimportable sur un autre poste |
 | Sauvegardes | Automatiques (intervalle réglable + à la fermeture), manuelles, rotation, **restauration** avec sauvegarde de sécurité préalable |
 
@@ -41,7 +41,7 @@ Règles de données partagées avec le futur produit : identifiants UUID, `creat
 ## Construire l'installeur Windows
 
 ### Option 1 — GitHub Actions (aucune installation)
-Poussez le dépôt sur GitHub : le workflow `.github/workflows/build-windows.yml` produit l'installeur `Jalon_1.0.1_x64-setup.exe`, téléchargeable dans les *artefacts* du job. Un tag `v1.0.0` le publie aussi en *release*.
+Poussez le dépôt sur GitHub : le workflow `.github/workflows/build-windows.yml` produit l'installeur `Jalon_1.1.0_x64-setup.exe`, téléchargeable dans les *artefacts* du job. Un tag `v1.0.0` le publie aussi en *release*.
 
 ### Option 2 — sur un PC Windows
 Prérequis (une seule fois) :
@@ -53,7 +53,7 @@ Prérequis (une seule fois) :
 ```powershell
 npm install
 npm run tauri build -- --bundles nsis
-# -> apps\local\src-tauri\target\release\bundle\nsis\Jalon_1.0.1_x64-setup.exe
+# -> apps\local\src-tauri\target\release\bundle\nsis\Jalon_1.1.0_x64-setup.exe
 ```
 
 L'installeur s'installe **pour l'utilisateur, sans droits administrateur**. Sans certificat de signature, Windows SmartScreen affiche un avertissement au premier lancement (« Informations complémentaires » → « Exécuter quand même »).

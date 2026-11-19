@@ -1,13 +1,10 @@
 /** Mise en page des rapports PDF (@react-pdf/renderer). */
-import { Buffer } from "buffer";
 import { Document, Font, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import { CHECK_ETATS, STATUTS, PRIORITES, TICKET_TYPES, formatDateFr, type CheckEtat, type Statut } from "@chantier/core";
+import type { RMeasureSection } from "./measures";
 import sans400 from "@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-400-normal.woff?url";
 import sans600 from "@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-600-normal.woff?url";
 import mono400 from "@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-400-normal.woff?url";
-
-// react-pdf attend Buffer (environnement Node) pour certains formats d'image
-(globalThis as unknown as { Buffer: typeof Buffer }).Buffer ??= Buffer;
 
 Font.register({ family: "Plex", fonts: [{ src: sans400 }, { src: sans600, fontWeight: 600 }] });
 Font.register({ family: "PlexMono", src: mono400 });
@@ -151,7 +148,45 @@ function ChecklistBlock({ c }: { c: RChecklist }) {
   );
 }
 
-export function CompanyReport({ id, project, entreprise, contact, tickets }: { id: Identity; project: ProjectInfo; entreprise: string; contact?: string | null; tickets: RTicket[] }) {
+/** Mesures : vue d'ensemble nette du plan + tableau (référence, valeur, notes). */
+function MeasuresSection({ sections, titre }: { sections: RMeasureSection[]; titre: string }) {
+  if (!sections.length) return null;
+  return (
+    <>
+      {sections.map((sec, i) => (
+        <View key={i} break={i === 0}>
+          <Text style={st.h2}>{titre} — {sec.titre}</Text>
+          {sec.images.map((im, j) => (
+            <View key={j} wrap={false} style={{ marginBottom: 8 }}>
+              {sec.images.length > 1 && <Text style={[st.small, st.muted, { marginBottom: 2 }]}>{im.legende}</Text>}
+              <Image src={im.src} style={{ width: 531, height: Math.min(531 * im.ratio, 420), objectFit: "contain", border: `1 solid ${LINE}` }} />
+            </View>
+          ))}
+          <View style={st.table}>
+            <View style={st.tr} fixed>
+              <Text style={[st.th, { width: 28 }]}>Réf.</Text><Text style={[st.th, { flex: 1 }]}>Libellé</Text><Text style={[st.th, { width: 52 }]}>Type</Text>
+              <Text style={[st.th, { width: 70, textAlign: "right" }]}>Valeur</Text><Text style={[st.th, { width: 62, textAlign: "right" }]}>Périmètre</Text>
+              <Text style={[st.th, { width: 36, textAlign: "center" }]}>Point</Text><Text style={[st.th, { width: 150, paddingLeft: 6 }]}>Notes</Text>
+            </View>
+            {sec.rows.map((r) => (
+              <View key={r.ref} style={st.tr} wrap={false}>
+                <Text style={{ width: 28, fontFamily: "PlexMono" }}>{r.ref}</Text><Text style={{ flex: 1 }}>{r.libelle || "—"}</Text>
+                <Text style={{ width: 52 }}>{r.type}</Text>
+                <Text style={{ width: 70, textAlign: "right" }}>{r.valeur}</Text>
+                <Text style={{ width: 62, textAlign: "right" }}>{r.perimetre}</Text>
+                <Text style={{ width: 36, textAlign: "center", fontFamily: "PlexMono" }}>{r.point}</Text>
+                <Text style={{ width: 150, paddingLeft: 6 }}>{r.notes}</Text>
+              </View>
+            ))}
+          </View>
+          {sec.rows.some((r) => r.valeur.endsWith("*")) && <Text style={[st.small, st.muted, { marginTop: 3 }]}>* mesure à cheval sur deux zones d'échelle : valeur calculée avec l'échelle du premier point.</Text>}
+        </View>
+      ))}
+    </>
+  );
+}
+
+export function CompanyReport({ id, project, entreprise, contact, tickets, mesures = [] }: { id: Identity; project: ProjectInfo; entreprise: string; contact?: string | null; tickets: RTicket[]; mesures?: RMeasureSection[] }) {
   const open = tickets.filter((t) => t.statut !== "clos").length;
   return (
     <Document title={`Points à traiter — ${entreprise}`} author={id.conducteur || id.societe}>
@@ -167,16 +202,17 @@ export function CompanyReport({ id, project, entreprise, contact, tickets }: { i
         <SummaryTable tickets={tickets} />
         <Text style={st.h2} break>Détail des points</Text>
         {tickets.map((t) => <TicketBlock key={t.numero} t={t} />)}
+        <MeasuresSection sections={mesures} titre="Mesures" />
         <Footer project={project} />
       </Page>
     </Document>
   );
 }
 
-export function VisitReport({ id, project, visite, crees, modifies, ouverts, checklists }: {
+export function VisitReport({ id, project, visite, crees, modifies, ouverts, checklists, mesures = [] }: {
   id: Identity; project: ProjectInfo;
   visite: { date: string; titre?: string | null; participants?: string | null; meteo?: string | null; notes?: string | null };
-  crees: RTicket[]; modifies: RTicket[]; ouverts: RTicket[]; checklists: RChecklist[];
+  crees: RTicket[]; modifies: RTicket[]; ouverts: RTicket[]; checklists: RChecklist[]; mesures?: RMeasureSection[];
 }) {
   return (
     <Document title={`Compte rendu de visite du ${formatDateFr(visite.date)}`} author={id.conducteur || id.societe}>
@@ -195,6 +231,7 @@ export function VisitReport({ id, project, visite, crees, modifies, ouverts, che
         {crees.length ? crees.map((t) => <TicketBlock key={t.numero} t={t} />) : <Text style={st.muted}>Aucun.</Text>}
         <Text style={st.h2}>Points mis à jour ({modifies.length})</Text>
         {modifies.length ? modifies.map((t) => <TicketBlock key={t.numero} t={t} />) : <Text style={st.muted}>Aucun.</Text>}
+        <MeasuresSection sections={mesures} titre="Mesures" />
         <Text style={st.h2} break>Points restant ouverts sur le chantier ({ouverts.length})</Text>
         <SummaryTable tickets={ouverts} />
         <Footer project={project} />
@@ -203,23 +240,24 @@ export function VisitReport({ id, project, visite, crees, modifies, ouverts, che
   );
 }
 
-export function GlobalReport({ id, project, tickets, parLot, parEntreprise }: {
+export function GlobalReport({ id, project, tickets, parLot, parEntreprise, mesures = [] }: {
   id: Identity; project: ProjectInfo; tickets: RTicket[];
   parLot: { nom: string; counts: Record<string, number> }[]; parEntreprise: { nom: string; counts: Record<string, number>; retard: number }[];
+  mesures?: RMeasureSection[];
 }) {
   const statuts = Object.keys(STATUTS);
   const table = (rows: { nom: string; counts: Record<string, number>; retard?: number }[], withRetard: boolean) => (
     <View style={st.table}>
       <View style={st.tr}>
         <Text style={[st.th, { flex: 1 }]}>{withRetard ? "Entreprise" : "Lot"}</Text>
-        {statuts.map((s) => <Text key={s} style={[st.th, { width: 62, textAlign: "right" }]}>{sLabel(s).split(" ")[0]}</Text>)}
-        {withRetard && <Text style={[st.th, { width: 50, textAlign: "right" }]}>Retard</Text>}
+        {statuts.map((s) => <Text key={s} style={[st.th, { width: 46, textAlign: "right" }]}>{STATUTS[s as Statut].court}</Text>)}
+        {withRetard && <Text style={[st.th, { width: 40, textAlign: "right" }]}>Retard</Text>}
       </View>
       {rows.map((r) => (
         <View key={r.nom} style={st.tr}>
           <Text style={{ flex: 1 }}>{r.nom}</Text>
-          {statuts.map((s) => <Text key={s} style={{ width: 62, textAlign: "right", fontFamily: "PlexMono" }}>{r.counts[s] ?? 0}</Text>)}
-          {withRetard && <Text style={{ width: 50, textAlign: "right", fontFamily: "PlexMono", color: r.retard ? "#c73a3a" : INK }}>{r.retard ?? 0}</Text>}
+          {statuts.map((s) => <Text key={s} style={{ width: 46, textAlign: "right", fontFamily: "PlexMono" }}>{r.counts[s] ?? 0}</Text>)}
+          {withRetard && <Text style={{ width: 40, textAlign: "right", fontFamily: "PlexMono", color: r.retard ? "#c73a3a" : INK }}>{r.retard ?? 0}</Text>}
         </View>
       ))}
     </View>
@@ -240,6 +278,7 @@ export function GlobalReport({ id, project, tickets, parLot, parEntreprise }: {
         {table(parEntreprise, true)}
         <Text style={st.h2} break>Points non clos</Text>
         <SummaryTable tickets={tickets.filter((t) => t.statut !== "clos")} />
+        <MeasuresSection sections={mesures} titre="Mesures" />
         <Footer project={project} />
       </Page>
     </Document>

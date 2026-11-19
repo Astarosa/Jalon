@@ -4,6 +4,7 @@ import { Stage, Layer, Image as KImage, Arrow, Line, Ellipse, Rect as KRect, Tex
 import type Konva from "konva";
 import { ANNOTATION_COLORS, uuid, type Shape } from "@chantier/core";
 import { Icon } from "./components";
+import { ColorPicker } from "./ColorPicker";
 
 type Kind = Shape["kind"] | "select";
 
@@ -170,8 +171,8 @@ export function PhotoAnnotator({
               </button>
             ))}
           </div>
-          <div className="row" style={{ gap: 6, marginLeft: 8 }}>
-            {ANNOTATION_COLORS.map((c) => <span key={c} className={`swatch ${c === color ? "on" : ""}`} style={{ background: c }} onClick={() => setColor(c)} />)}
+          <div style={{ marginLeft: 8 }}>
+            <ColorPicker value={color} presets={ANNOTATION_COLORS} onChange={setColor} inline={false} />
           </div>
           <label className="row small muted" style={{ marginLeft: 8 }}>Épaisseur
             <input type="range" min={2} max={12} value={width} onChange={(e) => setWidth(+e.target.value)} />

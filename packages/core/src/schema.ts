@@ -100,6 +100,7 @@ export const measurements = sqliteTable("measurements", {
   points: text("points").notNull(),
   libelle: text("libelle"),
   couleur: text("couleur"),
+  notes: text("notes"),
 });
 
 export const tickets = sqliteTable("tickets", {

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { LOT_COLORS } from "@chantier/core";
-import { Field, Icon, Modal, useUi } from "@chantier/ui";
+import { ColorPicker, Field, Icon, Modal, useUi } from "@chantier/ui";
 import { assignCompany, deleteLot, listAssignments, listCompanies, listLots, removeAssignment, saveCompany, saveLot, updateAssignment } from "../data/repo";
 import { useData } from "../data/useData";
 
@@ -25,7 +25,7 @@ export function IntervenantsTab({ projectId }: { projectId: string }) {
                   <tr key={l.id}>
                     <td><input className="input mono" style={{ height: 28 }} defaultValue={l.code ?? ""} onBlur={(e) => e.target.value !== (l.code ?? "") && saveLot({ ...l, code: e.target.value })} /></td>
                     <td><input className="input" style={{ height: 28 }} defaultValue={l.nom} onBlur={(e) => e.target.value.trim() && e.target.value !== l.nom && saveLot({ ...l, nom: e.target.value.trim() })} /></td>
-                    <td><input type="color" value={l.couleur} onChange={(e) => saveLot({ ...l, couleur: e.target.value })} style={{ width: 40, height: 26, border: 0, background: "none" }} /></td>
+                    <td><ColorPicker value={l.couleur} presets={LOT_COLORS} compact onChange={(c) => saveLot({ ...l, couleur: c })} /></td>
                     <td><button className="btn sm ghost icon danger" onClick={async () => (await ui.confirm(`Supprimer le lot « ${l.nom} » ?`, { danger: true, ok: "Supprimer" })) && deleteLot(l.id)}><Icon name="trash" size={13} /></button></td>
                   </tr>
                 ))}

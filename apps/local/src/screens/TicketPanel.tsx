@@ -95,7 +95,7 @@ export function TicketPanel({ ticketId, projectId, onClose, dims, cals, onShowOn
         <div className="row wrap" style={{ gap: 4 }}>
           {TRANSITIONS[t.statut as Statut]?.map((s) => (
             <button key={s} className="btn sm" style={{ borderColor: STATUTS[s].couleur, color: STATUTS[s].couleur }} onClick={() => setNow("statut", s)}>
-              {s === "transmis" ? "Transmettre" : s === "leve" ? "Déclarer levé" : s === "clos" ? "Contrôler et clore" : "Rouvrir"}
+              {STATUTS[s].action}
             </button>
           ))}
         </div>

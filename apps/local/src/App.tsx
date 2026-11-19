@@ -12,7 +12,7 @@ import { CompaniesScreen } from "./screens/CompaniesScreen";
 import { TemplatesScreen } from "./screens/TemplatesScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
 
-export const APP_VERSION = "1.0.1";
+export const APP_VERSION = "1.1.0";
 
 export function App() {
   const [cfg, setCfg] = useState<ConfigState | null>(null);

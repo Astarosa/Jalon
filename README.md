@@ -22,6 +22,7 @@ Elle sert de solution d'attente avant le produit collaboratif (multi-utilisateur
 | Nouvel indice | Report des points (et mesures) sur l'indice suivant, à position identique ou **recalé sur deux repères** (similitude) ; étalonnage repris si le format est identique |
 | Rapports PDF | Points à traiter **par entreprise** (extrait de plan localisé + photos), **compte rendu de visite**, **état du chantier** ; mesures tracées sur les extraits et section « Mesures » (vue nette du plan par zone d'échelle + tableau avec notes) |
 | Exports | Excel (points, mesures, visites) ; **export complet .zip** (données + plans + photos), réimportable sur un autre poste |
+| Mises à jour | Vérification au lancement, téléchargement et installation signés en un clic (voir plus bas) |
 | Sauvegardes | Automatiques (intervalle réglable + à la fermeture), manuelles, rotation, **restauration** avec sauvegarde de sécurité préalable |
 
 ## Organisation du code
@@ -41,7 +42,7 @@ Règles de données partagées avec le futur produit : identifiants UUID, `creat
 ## Construire l'installeur Windows
 
 ### Option 1 — GitHub Actions (aucune installation)
-Poussez le dépôt sur GitHub : le workflow `.github/workflows/build-windows.yml` produit l'installeur `Jalon_1.1.0_x64-setup.exe`, téléchargeable dans les *artefacts* du job. Un tag `v1.0.0` le publie aussi en *release*.
+Poussez le dépôt sur GitHub : le workflow `.github/workflows/build-windows.yml` produit l'installeur `Jalon_1.2.0_x64-setup.exe`, téléchargeable dans les *artefacts* du job. Un tag `v1.0.0` le publie aussi en *release*.
 
 ### Option 2 — sur un PC Windows
 Prérequis (une seule fois) :
@@ -53,12 +54,45 @@ Prérequis (une seule fois) :
 ```powershell
 npm install
 npm run tauri build -- --bundles nsis
-# -> apps\local\src-tauri\target\release\bundle\nsis\Jalon_1.1.0_x64-setup.exe
+# -> apps\local\src-tauri\target\release\bundle\nsis\Jalon_1.2.0_x64-setup.exe
 ```
 
 L'installeur s'installe **pour l'utilisateur, sans droits administrateur**. Sans certificat de signature, Windows SmartScreen affiche un avertissement au premier lancement (« Informations complémentaires » → « Exécuter quand même »).
 
 Pour développer sous Windows avec rechargement à chaud : `npm run tauri dev`.
+
+## Mises à jour automatiques
+
+Au lancement, Jalon consulte `https://github.com/Astarosa/Jalon/releases/latest/download/latest.json`. Si une version plus récente existe, une carte propose de la **télécharger et l'installer**. Les données sont sauvegardées avant l'installation, puis l'application redémarre. Le bouton *Réglages → À propos → Rechercher une mise à jour* lance la même vérification à la demande. La version est affichée sous la forme `version (build)`, où le build est le numéro d'exécution GitHub Actions.
+
+Les mises à jour sont **signées** : l'application refuse tout fichier dont la signature ne correspond pas à la clé publique intégrée au build.
+
+### Mise en place (une seule fois)
+
+1. Générer la paire de clés sur votre PC (un mot de passe est demandé) :
+   ```powershell
+   npx tauri signer generate -w "$env:USERPROFILE\.tauri\jalon.key"
+   ```
+   Deux fichiers sont créés : `jalon.key` (clé **privée**) et `jalon.key.pub` (clé publique).
+2. Sur GitHub, dans *Settings → Secrets and variables → Actions* :
+   - onglet **Secrets**, *New repository secret* :
+     - `TAURI_SIGNING_PRIVATE_KEY` = contenu complet de `jalon.key` ;
+     - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` = le mot de passe choisi ;
+   - onglet **Variables**, *New repository variable* :
+     - `TAURI_UPDATER_PUBKEY` = contenu de `jalon.key.pub`.
+3. Rendre le dépôt **public** (*Settings → General → Danger Zone → Change visibility*). Le fichier `latest.json` et les installeurs doivent être téléchargeables sans compte.
+4. Conserver `jalon.key` et son mot de passe en lieu sûr (gestionnaire de mots de passe). **Si la clé est perdue, les postes installés ne peuvent plus être mis à jour automatiquement** : il faudra réinstaller à la main une version signée avec une nouvelle clé.
+
+### Publier une version
+
+```bash
+npm run version:set -- 1.3.0                        # met à jour tauri.conf.json, Cargo.toml, package.json
+git commit -am "Version 1.3.0"
+git tag -a v1.3.0 -m "Nouveautés affichées dans l'application"
+git push origin main v1.3.0
+```
+
+Le workflow vérifie que le tag correspond à la version, construit l'installeur, le **signe** et publie la *release* avec `latest.json`. Le message du tag devient la note de version affichée dans l'application. Les push sur `main` sans tag produisent seulement un installeur de test (artefact).
 
 ## Développer dans un navigateur (toutes plateformes)
 

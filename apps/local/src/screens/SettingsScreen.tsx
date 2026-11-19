@@ -6,6 +6,8 @@ import { useData } from "../data/useData";
 import { Topbar } from "../components/Topbar";
 import { backupNow, getConfig, listBackups, platform, putFile, restoreBackup, setConfig, type ConfigState } from "../platform";
 import { bump } from "../data/db";
+import { APP_BUILD, APP_VERSION } from "../version";
+import { requestUpdateCheck } from "../components/UpdateNotifier";
 
 export function SettingsScreen() {
   const ui = useUi();
@@ -86,6 +88,13 @@ export function SettingsScreen() {
       <Topbar crumbs={[{ label: "Réglages et sauvegardes" }]} />
       <div className="page">
         <div className="page-narrow col gap-lg">
+          <div className="card card-pad row between">
+            <div>
+              <h2>À propos de Jalon</h2>
+              <div className="muted">Version <b className="mono">{APP_VERSION}</b> · build <b className="mono">{APP_BUILD}</b></div>
+            </div>
+            <button className="btn" onClick={requestUpdateCheck}><Icon name="download" />Rechercher une mise à jour</button>
+          </div>
           <div className="card card-pad col">
             <h2>Identité (en-tête des rapports)</h2>
             <div className="grid2">

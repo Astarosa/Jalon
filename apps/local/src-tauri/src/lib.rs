@@ -82,6 +82,8 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        // Mises à jour signées, publiées dans les « Releases » GitHub (voir README)
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             let dir = app.path().app_config_dir()?;
             app.manage::<S>(Arc::new(AppState::new(dir.join("config.json"))));

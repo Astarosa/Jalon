@@ -1,11 +1,21 @@
 name: Installeur Windows
 
+# - push sur main / PR : tests + installeur de test (artefact, non publié)
+# - tag vX.Y.Z      : tests + installeur signé publié dans les Releases avec latest.json
+#                     (c'est ce fichier que l'application consulte pour se mettre à jour)
 on:
   push:
     branches: [main]
     tags: ["v*"]
   pull_request:
   workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  # Numéro de build affiché dans l'application : « version (build) »
+  JALON_BUILD: ${{ github.run_number }}
 
 jobs:
   tests:
@@ -20,6 +30,7 @@ jobs:
       - run: npm test
 
   windows:
+    if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
     needs: tests
     runs-on: windows-latest
     steps:
@@ -38,8 +49,57 @@ jobs:
           name: Jalon-installeur-windows
           path: apps/local/src-tauri/target/release/bundle/nsis/*.exe
           if-no-files-found: error
-      - name: Publication (sur tag v*)
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: tests
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with: { workspaces: "apps/local/src-tauri -> target" }
+      - run: npm ci
+
+      - name: Contrôles avant publication
+        shell: bash
+        env:
+          PUBKEY: ${{ vars.TAURI_UPDATER_PUBKEY }}
+          HAS_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
+        run: |
+          V=$(node -p "require('./apps/local/src-tauri/tauri.conf.json').version")
+          if [ "v$V" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Le tag $GITHUB_REF_NAME ne correspond pas à la version $V de tauri.conf.json (npm run version:set)"; exit 1
+          fi
+          [ -n "$PUBKEY" ] || { echo "::error::Variable de dépôt TAURI_UPDATER_PUBKEY manquante (voir README)"; exit 1; }
+          [ "$HAS_KEY" = "true" ] || { echo "::error::Secret TAURI_SIGNING_PRIVATE_KEY manquant (voir README)"; exit 1; }
+          # Configuration de publication : clé publique + artefacts de mise à jour signés
+          node -e "require('fs').writeFileSync('apps/local/src-tauri/tauri.release.conf.json', JSON.stringify({bundle:{createUpdaterArtifacts:true},plugins:{updater:{pubkey:process.env.PUBKEY}}}))"
+
+      - name: Notes de version (message du tag)
+        id: notes
+        shell: bash
+        run: |
+          BODY=$(git for-each-ref "refs/tags/$GITHUB_REF_NAME" --format='%(contents)' | sed '/-----BEGIN PGP/,$d')
+          [ -n "$BODY" ] || BODY="Jalon $GITHUB_REF_NAME"
+          { echo "body<<FIN_NOTES"; echo "$BODY"; echo "FIN_NOTES"; } >> "$GITHUB_OUTPUT"
+
+      - name: Construction, signature et publication
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          files: apps/local/src-tauri/target/release/bundle/nsis/*.exe
+          projectPath: apps/local
+          tagName: ${{ github.ref_name }}
+          releaseName: Jalon ${{ github.ref_name }}
+          releaseBody: ${{ steps.notes.outputs.body }}
+          releaseDraft: false
+          prerelease: false
+          includeUpdaterJson: true
+          updaterJsonPreferNsis: true
+          args: --bundles nsis --config ${{ github.workspace }}/apps/local/src-tauri/tauri.release.conf.json

@@ -4,3 +4,4 @@ dist
 .dev-config
 apps/local/public/pdfjs
 apps/local/src-tauri/gen
+apps/local/src-tauri/tauri.release.conf.json

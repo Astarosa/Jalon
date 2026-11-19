@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { cpSync, existsSync } from "node:fs";
 import { createRequire } from "node:module";
+import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 // Ressources de pdf.js (polices standard, tables CMap, décodeurs wasm) copiées dans public/pdfjs
@@ -13,8 +14,15 @@ for (const d of ["cmaps", "standard_fonts", "wasm"]) {
 
 const dev = { target: "http://127.0.0.1:1421", changeOrigin: false };
 
+// Version unique : celle de tauri.conf.json. Numéro de build : fourni par la CI (numéro d'exécution GitHub).
+const tauriConf = JSON.parse(readFileSync(join(__dirname, "src-tauri", "tauri.conf.json"), "utf8"));
+
 export default defineConfig({
   plugins: [react()],
+  define: {
+    __APP_VERSION__: JSON.stringify(tauriConf.version),
+    __APP_BUILD__: JSON.stringify(process.env.JALON_BUILD || "dev"),
+  },
   clearScreen: false,
   server: {
     port: 1420,

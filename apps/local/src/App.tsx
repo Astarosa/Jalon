@@ -11,8 +11,9 @@ import { PlanScreen } from "./screens/PlanScreen";
 import { CompaniesScreen } from "./screens/CompaniesScreen";
 import { TemplatesScreen } from "./screens/TemplatesScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
+import { VERSION_LABEL } from "./version";
+import { UpdateNotifier } from "./components/UpdateNotifier";
 
-export const APP_VERSION = "1.1.0";
 
 export function App() {
   const [cfg, setCfg] = useState<ConfigState | null>(null);
@@ -143,10 +144,11 @@ function Shell({ cfg }: { cfg: ConfigState }) {
               </div>
             </div>
           )}
-          <div className="side-foot">v{APP_VERSION}{platform.kind === "dev" ? " · dev" : ""}</div>
+          <div className="side-foot" title="Version (build)">Jalon {VERSION_LABEL}</div>
         </aside>
         <main className="main">{screen}</main>
       </div>
+      <UpdateNotifier />
     </Ctx.Provider>
   );
 }

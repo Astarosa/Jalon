@@ -1,6 +1,6 @@
 [package]
 name = "jalon"
-version = "1.1.0"
+version = "1.2.0"
 description = "Jalon — suivi de chantier, édition locale pour conducteur de travaux"
 edition = "2021"
 publish = false
@@ -17,6 +17,7 @@ chantier-store = { path = "../../../crates/store" }
 tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
+tauri-plugin-updater = "2"
 serde_json = "1"
 
 [profile.release]

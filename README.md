@@ -41,7 +41,7 @@ Règles de données partagées avec le futur produit : identifiants UUID, `creat
 ## Construire l'installeur Windows
 
 ### Option 1 — GitHub Actions (aucune installation)
-Poussez le dépôt sur GitHub : le workflow `.github/workflows/build-windows.yml` produit l'installeur `Jalon_1.0.0_x64-setup.exe`, téléchargeable dans les *artefacts* du job. Un tag `v1.0.0` le publie aussi en *release*.
+Poussez le dépôt sur GitHub : le workflow `.github/workflows/build-windows.yml` produit l'installeur `Jalon_1.0.1_x64-setup.exe`, téléchargeable dans les *artefacts* du job. Un tag `v1.0.0` le publie aussi en *release*.
 
 ### Option 2 — sur un PC Windows
 Prérequis (une seule fois) :
@@ -53,7 +53,7 @@ Prérequis (une seule fois) :
 ```powershell
 npm install
 npm run tauri build -- --bundles nsis
-# -> apps\local\src-tauri\target\release\bundle\nsis\Jalon_1.0.0_x64-setup.exe
+# -> apps\local\src-tauri\target\release\bundle\nsis\Jalon_1.0.1_x64-setup.exe
 ```
 
 L'installeur s'installe **pour l'utilisateur, sans droits administrateur**. Sans certificat de signature, Windows SmartScreen affiche un avertissement au premier lancement (« Informations complémentaires » → « Exécuter quand même »).

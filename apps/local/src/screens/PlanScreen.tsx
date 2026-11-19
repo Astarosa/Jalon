@@ -11,7 +11,7 @@ import {
 import { useData } from "../data/useData";
 import { useApp } from "../nav";
 import { platform } from "../platform";
-import { ensureTiles, snapIndexFor, type TileMeta } from "../pdf/pdf";
+import { ensureTiles, hdRenderer, snapIndexFor, type TileMeta } from "../pdf/pdf";
 import { Topbar } from "../components/Topbar";
 import { TicketPanel } from "./TicketPanel";
 import { CalibrationPanel, type CalFlow } from "./CalibrationPanel";
@@ -49,7 +49,7 @@ export function PlanScreen({ projectId, planId, versionId, ticketId }: { project
   const [calFlow, setCalFlow] = useState<CalFlow | null>(null);
   const [pickHandler, setPickHandler] = useState<((pts: Pt[]) => void) | null>(null);
   const [viewOverride, setViewOverride] = useState<string | null>(null);
-  const [overrideMeta, setOverrideMeta] = useState<{ meta: TileMeta; w: number; h: number; snap: SnapIndex | null } | null>(null);
+  const [overrideMeta, setOverrideMeta] = useState<{ meta: TileMeta; w: number; h: number; snap: SnapIndex | null; sha: string; page: number } | null>(null);
 
   const tickets = useData(() => listTickets({ projectId, planVersionId: versionId }), [projectId, versionId]);
 
@@ -72,7 +72,7 @@ export function PlanScreen({ projectId, planId, versionId, ticketId }: { project
       if (!v) return;
       const m = await ensureTiles(v.id, v.file_sha256, v.page_index);
       const si = await snapIndexFor(v.file_sha256, v.page_index).catch(() => null);
-      setOverrideMeta({ meta: m, w: v.largeur_pt, h: v.hauteur_pt, snap: si });
+      setOverrideMeta({ meta: m, w: v.largeur_pt, h: v.hauteur_pt, snap: si, sha: v.file_sha256, page: v.page_index });
     });
   }, [viewOverride]);
 
@@ -198,6 +198,10 @@ export function PlanScreen({ projectId, planId, versionId, ticketId }: { project
   const shownMeta = overrideMeta?.meta ?? meta;
   const shownDims = overrideMeta ? { w: overrideMeta.w, h: overrideMeta.h } : dims;
   const shownPvid = viewOverride ?? versionId;
+  const hdRender = useMemo(() => {
+    if (viewOverride) return overrideMeta ? hdRenderer(overrideMeta.sha, overrideMeta.page) : null;
+    return version ? hdRenderer(version.file_sha256, version.page_index) : null;
+  }, [viewOverride, overrideMeta, version?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toolBtn = (t: Tool, icon: string, label: string, accent = false) => (
     <button className={`tool-btn ${accent ? "accent" : ""} ${tool === t ? "on" : ""}`} title={label} onClick={() => setTool(tool === t ? "select" : t)}>
@@ -290,7 +294,7 @@ export function PlanScreen({ projectId, planId, versionId, ticketId }: { project
                 onPinDrag={(id, p) => updateTicket(id, { x: p.x, y: p.y }, visitId)}
                 onMeasureClick={(id) => { setPanel({ kind: "measure", id }); setListTab("mesures"); }}
                 onZoneClick={() => setPanel({ kind: "calib" })}
-                focus={focus}
+                focus={focus} hdRender={hdRender}
               />
             ) : (
               <div className="empty" style={{ position: "absolute", inset: 0, justifyContent: "center" }}>

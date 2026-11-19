@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Visionneuse de plan : tuiles + épingles + mesures + zones d'étalonnage + outils de saisie.
  * Repère Leaflet `CRS.Simple` où 1 unité = 1 point PDF (lat = -y, lng = x).
@@ -39,7 +40,54 @@ export interface PlanViewerProps {
   onZoneClick?: (id: string) => void;
   onBackgroundClick?: () => void;
   focus?: { x: number; y: number; key: number } | null;
+  /**
+   * Rendu vectoriel net (pdf.js) d'une portion de page dans un canevas.
+   * `scale` = pixels réels par point PDF ; (ox, oy) = décalage en pixels du coin haut-gauche.
+   */
+  hdRender?: HdRender | null;
 }
+
+export type HdRender = (canvas: HTMLCanvasElement, scale: number, ox: number, oy: number) => { promise: Promise<void>; cancel: () => void };
+
+/**
+ * Calque canevas géoréférencé (comme L.ImageOverlay, mais avec un <canvas>) : suit les zooms animés
+ * pour rester calé pendant que le rendu net suivant se prépare.
+ */
+const CanvasOverlay = L.Layer.extend({
+  initialize(this: any, canvas: HTMLCanvasElement, bounds: L.LatLngBounds, pane: string) {
+    this._el = canvas;
+    this._bounds = bounds;
+    this.options.pane = pane;
+  },
+  onAdd(this: any) {
+    this._el.classList.add("leaflet-zoom-animated");
+    this._el.style.position = "absolute";
+    this._el.style.pointerEvents = "none";
+    this.getPane().appendChild(this._el);
+    this._reset();
+  },
+  onRemove(this: any) {
+    this._el.remove();
+  },
+  getEvents(this: any) {
+    return { zoom: this._reset, viewreset: this._reset, zoomanim: this._animateZoom };
+  },
+  _animateZoom(this: any, e: L.ZoomAnimEvent) {
+    const scale = this._map.getZoomScale(e.zoom);
+    const offset = this._map._latLngBoundsToNewLayerBounds(this._bounds, e.zoom, e.center).min;
+    L.DomUtil.setTransform(this._el, offset, scale);
+  },
+  _reset(this: any) {
+    const b = L.bounds(this._map.latLngToLayerPoint(this._bounds.getNorthWest()), this._map.latLngToLayerPoint(this._bounds.getSouthEast()));
+    const size = b.getSize();
+    L.DomUtil.setPosition(this._el, b.min!);
+    this._el.style.width = size.x + "px";
+    this._el.style.height = size.y + "px";
+  },
+}) as unknown as new (canvas: HTMLCanvasElement, bounds: L.LatLngBounds, pane: string) => L.Layer;
+
+/** Nombre maximal de pixels d'un rendu net (mémoire et temps de rendu). */
+const HD_MAX_PIXELS = 20_000_000;
 
 const NEEDED: Partial<Record<Tool, number>> = { pin: 1, distance: 2, calib: 2, control: 2, zone: 2, pick2: 2 };
 
@@ -63,6 +111,7 @@ export function PlanViewer(props: PlanViewerProps) {
   } | null>(null);
 
   const { w, h } = props.dims;
+  const s0 = useRef<{ renderHd?: () => void }>({}).current;
   const toLL = (p: Pt) => L.latLng(-p.y * h, p.x * w);
   const toRel = (ll: L.LatLng): Pt => ({ x: ll.lng / w, y: -ll.lat / h });
 
@@ -77,11 +126,11 @@ export function PlanViewer(props: PlanViewerProps) {
     }) as unknown as new (url: string, o: L.TileLayerOptions) => L.TileLayer;
     const tileOpts: L.TileLayerOptions = {
       tileSize: tiles.tile, minNativeZoom: tiles.zMin, maxNativeZoom: tiles.zMax,
-      minZoom: tiles.zMin - 2, maxZoom: tiles.zMax + 3, bounds, noWrap: true, keepBuffer: 3,
+      minZoom: tiles.zMin - 2, maxZoom: tiles.zMax + 5, bounds, noWrap: true, keepBuffer: 3,
     };
     void tileUrl;
     const map = L.map(host.current!, {
-      crs: L.CRS.Simple, minZoom: tiles.zMin - 1, maxZoom: tiles.zMax + 3, zoomSnap: 0.25, zoomDelta: 0.5,
+      crs: L.CRS.Simple, minZoom: tiles.zMin - 1, maxZoom: tiles.zMax + 4, zoomSnap: 0.25, zoomDelta: 0.5,
       wheelPxPerZoomLevel: 90, attributionControl: false, zoomControl: false, doubleClickZoom: false, boxZoom: false,
       maxBounds: bounds.pad(0.4), maxBoundsViscosity: 0.6, inertia: true,
     });
@@ -91,12 +140,57 @@ export function PlanViewer(props: PlanViewerProps) {
     L.control.zoom({ position: "bottomright", zoomInTitle: "Zoom avant", zoomOutTitle: "Zoom arrière" }).addTo(map);
 
     const loupe = L.map(loupeHost.current!, {
-      crs: L.CRS.Simple, minZoom: tiles.zMin - 2, maxZoom: tiles.zMax + 5, zoomControl: false, attributionControl: false,
+      crs: L.CRS.Simple, minZoom: tiles.zMin - 2, maxZoom: tiles.zMax + 7, zoomControl: false, attributionControl: false,
       dragging: false, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false, touchZoom: false,
       fadeAnimation: false, zoomAnimation: false,
     });
-    new TL("", { ...tileOpts, maxZoom: tiles.zMax + 5, keepBuffer: 1 }).addTo(loupe);
+    new TL("", { ...tileOpts, maxZoom: tiles.zMax + 7, keepBuffer: 1 }).addTo(loupe);
     loupe.setView([-h / 2, w / 2], tiles.zMin);
+
+    // ---------------------------------------------------- rendu net de la vue
+    map.createPane("hd").style.zIndex = "250";
+    let hdLayer: L.Layer | null = null;
+    let hdTask: { cancel: () => void } | null = null;
+    let hdTimer: ReturnType<typeof setTimeout> | undefined;
+    const renderHd = () => {
+      const fn = pr.current.hdRender;
+      hdTask?.cancel();
+      if (!fn) return;
+      const dpr = window.devicePixelRatio || 1;
+      const z = map.getZoom();
+      const vb = map.getBounds().pad(0.25);
+      // portion visible de la page, en points PDF
+      const x0 = Math.max(0, vb.getWest()), x1 = Math.min(w, vb.getEast());
+      const y0 = Math.max(0, -vb.getNorth()), y1 = Math.min(h, -vb.getSouth());
+      if (x1 <= x0 || y1 <= y0) return;
+      let k = 2 ** z * dpr; // pixels réels par point
+      const area = (x1 - x0) * (y1 - y0) * k * k;
+      if (area > HD_MAX_PIXELS) k *= Math.sqrt(HD_MAX_PIXELS / area);
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.ceil((x1 - x0) * k);
+      canvas.height = Math.ceil((y1 - y0) * k);
+      const task = fn(canvas, k, x0 * k, y0 * k);
+      hdTask = task;
+      task.promise
+        .then(() => {
+          if (hdTask !== task || !st.current) return;
+          const layer = new CanvasOverlay(canvas, L.latLngBounds([-y1, x0], [-y0, x1]), "hd");
+          layer.addTo(map);
+          hdLayer?.remove();
+          hdLayer = layer;
+        })
+        .catch(() => { /* rendu annulé */ });
+    };
+    const scheduleHd = () => {
+      clearTimeout(hdTimer);
+      hdTimer = setTimeout(renderHd, 120);
+    };
+    map.on("moveend zoomend resize", scheduleHd);
+    map.on("movestart zoomstart", () => {
+      clearTimeout(hdTimer);
+      hdTask?.cancel();
+    });
+    (s0 as { renderHd?: () => void }).renderHd = scheduleHd;
 
     const snapMark = L.marker([0, 0], { icon: L.divIcon({ className: "snap-mark", iconSize: [12, 12] }), interactive: false, keyboard: false });
     const live = L.tooltip({ permanent: true, direction: "right", offset: [14, 0], className: "measure-label" });
@@ -162,16 +256,54 @@ export function PlanViewer(props: PlanViewerProps) {
       if ((tool === "polyligne" && s.drawing.length >= 2) || (tool === "surface" && s.drawing.length >= 3)) finish();
     });
 
+    const LOUPE = 170;
+    const loupeCanvas = document.createElement("canvas");
+    loupeCanvas.style.cssText = "position:absolute;inset:0;width:100%;height:100%;z-index:900;pointer-events:none;display:none";
+    loupeHost.current!.appendChild(loupeCanvas);
+    let loupeTask: { cancel: () => void } | null = null;
+    let loupeTimer: ReturnType<typeof setTimeout> | undefined;
+    let loupeSized = false;
+    const loupeZoom = () => Math.min(map.getZoom() + 2, pr.current.tiles.zMax + 6);
+    const renderLoupeHd = (ll: L.LatLng) => {
+      const fn = pr.current.hdRender;
+      if (!fn) return;
+      const dpr = window.devicePixelRatio || 1;
+      const k = 2 ** loupeZoom() * dpr;
+      const c = document.createElement("canvas");
+      c.width = c.height = Math.round(LOUPE * dpr);
+      const task = fn(c, k, ll.lng * k - c.width / 2, -ll.lat * k - c.height / 2);
+      loupeTask = task;
+      task.promise
+        .then(() => {
+          if (loupeTask !== task) return;
+          loupeCanvas.width = c.width;
+          loupeCanvas.height = c.height;
+          loupeCanvas.getContext("2d")!.drawImage(c, 0, 0);
+          loupeCanvas.style.display = "block";
+        })
+        .catch(() => { /* annulé */ });
+    };
+
     const updateLoupe = (ll: L.LatLng, cp: L.Point) => {
       const el = loupeHost.current!;
       const show = pr.current.tool !== "select";
       el.style.display = show ? "block" : "none";
       if (!show) return;
+      // La loupe est créée masquée : Leaflet doit relire sa taille, sinon elle se centre sur son coin haut-gauche.
+      if (!loupeSized) {
+        loupe.invalidateSize({ pan: false });
+        loupeSized = true;
+      }
+      // Placée à côté du curseur (pour ne pas cacher ce qu'on vise), elle montre la zone située sous le curseur.
       const size = map.getSize();
-      const x = cp.x + 190 > size.x ? cp.x - 190 : cp.x + 22;
-      const y = cp.y + 190 > size.y ? cp.y - 190 : cp.y + 22;
+      const x = cp.x + LOUPE + 30 > size.x ? cp.x - LOUPE - 20 : cp.x + 24;
+      const y = cp.y + LOUPE + 30 > size.y ? cp.y - LOUPE - 20 : cp.y + 24;
       el.style.transform = `translate(${x}px, ${y}px)`;
-      loupe.setView(ll, Math.min(map.getZoom() + 2, pr.current.tiles.zMax + 4), { animate: false });
+      loupe.setView(ll, loupeZoom(), { animate: false });
+      loupeCanvas.style.display = "none";
+      loupeTask?.cancel();
+      clearTimeout(loupeTimer);
+      loupeTimer = setTimeout(() => renderLoupeHd(ll), 90);
     };
 
     map.on("mousemove", (e: L.LeafletMouseEvent) => {
@@ -186,6 +318,8 @@ export function PlanViewer(props: PlanViewerProps) {
     });
     map.on("mouseout", () => {
       loupeHost.current!.style.display = "none";
+      loupeTask?.cancel();
+      clearTimeout(loupeTimer);
       s.cursor = null;
       s.snapMark.remove();
       redrawDraft();
@@ -241,6 +375,10 @@ export function PlanViewer(props: PlanViewerProps) {
     return () => {
       window.removeEventListener("keydown", onKey);
       ro.disconnect();
+      clearTimeout(hdTimer);
+      clearTimeout(loupeTimer);
+      hdTask?.cancel();
+      loupeTask?.cancel();
       map.remove();
       loupe.remove();
       st.current = null;
@@ -257,6 +395,11 @@ export function PlanViewer(props: PlanViewerProps) {
     s.snapMark.remove();
     if (props.tool === "select") loupeHost.current!.style.display = "none";
   }, [props.tool]);
+
+  // --------------------------------------------------------- rendu net prêt
+  useEffect(() => {
+    s0.renderHd?.();
+  }, [props.hdRender]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // --------------------------------------------------------------- épingles
   useEffect(() => {

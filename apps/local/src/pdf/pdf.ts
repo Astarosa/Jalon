@@ -235,6 +235,34 @@ export async function readPdfScales(bytes: Uint8Array, doc: PdfDoc, pageIndex: n
   }
 }
 
+// ------------------------------------------------------- rendu net (vectoriel)
+
+/**
+ * Rendu direct d'une portion de page par pdf.js, à la résolution exacte demandée :
+ * utilisé par la visionneuse pour la zone visible et pour la loupe (les tuiles ne servent
+ * qu'à l'affichage immédiat pendant les déplacements).
+ */
+export function hdRenderer(sha: string, pageIndex: number) {
+  const pageP = openPdfBySha(sha).then((d) => d.getPage(pageIndex + 1));
+  return (canvas: HTMLCanvasElement, scale: number, ox: number, oy: number) => {
+    let cancelled = false;
+    let task: ReturnType<pdfjs.PDFPageProxy["render"]> | null = null;
+    const promise = pageP.then(async (page) => {
+      if (cancelled) throw new Error("annulé");
+      const viewport = page.getViewport({ scale });
+      task = page.render({ canvasContext: canvas.getContext("2d")!, canvas, viewport, transform: [1, 0, 0, 1, -ox, -oy] });
+      await task.promise;
+    });
+    return {
+      promise,
+      cancel: () => {
+        cancelled = true;
+        task?.cancel();
+      },
+    };
+  };
+}
+
 // ------------------------------------------------------------- accrochage
 
 const snapCache = new Map<string, Promise<SnapIndex>>();

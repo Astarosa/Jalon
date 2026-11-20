@@ -91,8 +91,9 @@ Les mises à jour sont **signées** : l'application refuse tout fichier dont la 
    ```
 2. Publier, au choix :
    - **depuis GitHub, sans ligne de commande** : onglet *Actions* → *Installeur Windows* → *Run workflow*, cocher **Publier**, saisir les nouveautés (`\n` pour aller à la ligne) → *Run workflow*. Le workflow crée le tag `v1.3.0` et la release ;
-   - **depuis GitHub, par les Releases** : *Releases → Draft a new release*, créer le tag `v1.3.0`, écrire les nouveautés puis **Publish release** (un brouillon ne déclenche rien) ;
    - **en ligne de commande** : `git tag -a v1.3.0 -m "Nouveautés…" && git push origin v1.3.0`.
+
+Le dépôt utilise des **releases immuables** : le workflow crée la release en brouillon, y joint l'installeur, sa signature et `latest.json`, puis la publie. Une version publiée ne peut plus être modifiée ni republiée, il faut donc toujours augmenter le numéro de version.
 
 Le workflow vérifie que la version n'est pas déjà publiée et que le tag correspond à `tauri.conf.json`. Il construit l'installeur, le **signe** et publie la *release* avec `latest.json`. Les nouveautés saisies deviennent la note affichée dans l'application. Les push sur `main` produisent seulement un installeur de test (artefact).
 

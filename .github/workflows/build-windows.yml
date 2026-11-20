@@ -86,6 +86,9 @@ jobs:
           if [ "$GITHUB_REF_TYPE" = "tag" ]; then
             TAG="$GITHUB_REF_NAME"
             [ "$TAG" = "v$V" ] || { echo "::error::Le tag $TAG ne correspond pas à la version $V de tauri.conf.json (npm run version:set)"; exit 1; }
+            if [ "$(gh release view "$TAG" --json isDraft -q .isDraft 2>/dev/null)" = "false" ]; then
+              echo "::error::La release $TAG est déjà publiée : les releases immuables n'acceptent plus de fichiers. Créez-la en brouillon ou utilisez le bouton Run workflow > Publier."; exit 1
+            fi
           else
             TAG="v$V"
             if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
@@ -129,8 +132,20 @@ jobs:
           releaseName: Jalon ${{ steps.version.outputs.tag }}
           releaseCommitish: ${{ github.sha }}
           releaseBody: ${{ steps.notes.outputs.body }}
-          releaseDraft: false
+          # Brouillon d'abord : le dépôt utilise des releases immuables (aucun ajout possible après publication)
+          releaseDraft: true
           prerelease: false
           includeUpdaterJson: true
           updaterJsonPreferNsis: true
           args: --bundles nsis --config ${{ github.workspace }}/apps/local/src-tauri/tauri.release.conf.json
+
+      - name: Publication de la release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          gh release view "$TAG" --json assets -q '.assets[].name' | tee /tmp/assets.txt
+          grep -q '^latest.json$' /tmp/assets.txt || { echo "::error::latest.json absent de la release"; exit 1; }
+          grep -q '\.sig$' /tmp/assets.txt || { echo "::error::signature absente de la release"; exit 1; }
+          gh release edit "$TAG" --draft=false --latest

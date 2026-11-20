@@ -1,6 +1,6 @@
 [package]
 name = "jalon"
-version = "1.2.0"
+version = "1.2.1"
 description = "Jalon — suivi de chantier, édition locale pour conducteur de travaux"
 edition = "2021"
 publish = false

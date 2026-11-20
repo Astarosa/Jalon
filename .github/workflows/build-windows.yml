@@ -1,14 +1,25 @@
 name: Installeur Windows
 
-# - push sur main / PR : tests + installeur de test (artefact, non publié)
-# - tag vX.Y.Z      : tests + installeur signé publié dans les Releases avec latest.json
-#                     (c'est ce fichier que l'application consulte pour se mettre à jour)
+# - push sur main / PR          : tests + installeur de test (artefact, non publié)
+# - Actions > Run workflow,
+#   case « Publier » cochée       : publie la version de tauri.conf.json (crée le tag vX.Y.Z)
+# - tag vX.Y.Z poussé / release  : même publication
+# La publication produit l'installeur signé et latest.json, que l'application consulte pour se mettre à jour.
 on:
   push:
     branches: [main]
     tags: ["v*"]
   pull_request:
   workflow_dispatch:
+    inputs:
+      publier:
+        description: "Publier la version (crée le tag et la release à partir de tauri.conf.json)"
+        type: boolean
+        default: false
+      notes:
+        description: "Nouveautés affichées dans l'application (une par ligne, séparées par \\n si besoin)"
+        type: string
+        default: ""
 
 permissions:
   contents: write
@@ -30,7 +41,7 @@ jobs:
       - run: npm test
 
   windows:
-    if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+    if: ${{ !startsWith(github.ref, 'refs/tags/v') && !inputs.publier }}
     needs: tests
     runs-on: windows-latest
     steps:
@@ -51,7 +62,7 @@ jobs:
           if-no-files-found: error
 
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: ${{ startsWith(github.ref, 'refs/tags/v') || inputs.publier }}
     needs: tests
     runs-on: windows-latest
     steps:
@@ -65,26 +76,45 @@ jobs:
       - run: npm ci
 
       - name: Contrôles avant publication
+        id: version
         shell: bash
         env:
           HAS_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           V=$(node -p "require('./apps/local/src-tauri/tauri.conf.json').version")
-          if [ "v$V" != "$GITHUB_REF_NAME" ]; then
-            echo "::error::Le tag $GITHUB_REF_NAME ne correspond pas à la version $V de tauri.conf.json (npm run version:set)"; exit 1
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            TAG="$GITHUB_REF_NAME"
+            [ "$TAG" = "v$V" ] || { echo "::error::Le tag $TAG ne correspond pas à la version $V de tauri.conf.json (npm run version:set)"; exit 1; }
+          else
+            TAG="v$V"
+            if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+              echo "::error::La version $V est déjà publiée (tag $TAG). Augmentez la version : npm run version:set -- X.Y.Z"; exit 1
+            fi
           fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           PUB=$(node -p "require('./apps/local/src-tauri/tauri.conf.json').plugins.updater.pubkey")
           [ -n "$PUB" ] || { echo "::error::Clé publique absente de tauri.conf.json (plugins.updater.pubkey)"; exit 1; }
           [ "$HAS_KEY" = "true" ] || { echo "::error::Secret de dépôt TAURI_SIGNING_PRIVATE_KEY manquant (voir README)"; exit 1; }
           # Publication : génère aussi les fichiers de mise à jour signés (.sig) et latest.json
           node -e "require('fs').writeFileSync('apps/local/src-tauri/tauri.release.conf.json', JSON.stringify({bundle:{createUpdaterArtifacts:true}}))"
 
-      - name: Notes de version (message du tag)
+      - name: Notes de version
         id: notes
         shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.version.outputs.tag }}
+          INPUT_NOTES: ${{ inputs.notes }}
         run: |
-          BODY=$(git for-each-ref "refs/tags/$GITHUB_REF_NAME" --format='%(contents)' | sed '/-----BEGIN PGP/,$d')
-          [ -n "$BODY" ] || BODY="Jalon $GITHUB_REF_NAME"
+          # Priorité : saisie du bouton « Run workflow », puis texte d'une release créée sur GitHub,
+          # puis message d'un tag annoté.
+          BODY=$(printf '%b' "$INPUT_NOTES")
+          [ -n "$BODY" ] || BODY=$(gh release view "$TAG" --json body -q .body 2>/dev/null || true)
+          if [ -z "$BODY" ] && [ "$(git cat-file -t "refs/tags/$TAG" 2>/dev/null)" = "tag" ]; then
+            BODY=$(git for-each-ref "refs/tags/$TAG" --format='%(contents)' | sed '/-----BEGIN PGP/,$d')
+          fi
+          [ -n "$BODY" ] || BODY="Jalon $TAG"
           { echo "body<<FIN_NOTES"; echo "$BODY"; echo "FIN_NOTES"; } >> "$GITHUB_OUTPUT"
 
       - name: Construction, signature et publication
@@ -95,8 +125,9 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: apps/local
-          tagName: ${{ github.ref_name }}
-          releaseName: Jalon ${{ github.ref_name }}
+          tagName: ${{ steps.version.outputs.tag }}
+          releaseName: Jalon ${{ steps.version.outputs.tag }}
+          releaseCommitish: ${{ github.sha }}
           releaseBody: ${{ steps.notes.outputs.body }}
           releaseDraft: false
           prerelease: false

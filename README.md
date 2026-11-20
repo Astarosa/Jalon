@@ -84,14 +84,17 @@ Les mises à jour sont **signées** : l'application refuse tout fichier dont la 
 
 ### Publier une version
 
-```bash
-npm run version:set -- 1.3.0                        # met à jour tauri.conf.json, Cargo.toml, package.json
-git commit -am "Version 1.3.0"
-git tag -a v1.3.0 -m "Nouveautés affichées dans l'application"
-git push origin main v1.3.0
-```
+1. Augmenter la version et pousser :
+   ```bash
+   npm run version:set -- 1.3.0      # met à jour tauri.conf.json, Cargo.toml, package.json
+   git commit -am "Version 1.3.0" && git push
+   ```
+2. Publier, au choix :
+   - **depuis GitHub, sans ligne de commande** : onglet *Actions* → *Installeur Windows* → *Run workflow*, cocher **Publier**, saisir les nouveautés (`\n` pour aller à la ligne) → *Run workflow*. Le workflow crée le tag `v1.3.0` et la release ;
+   - **depuis GitHub, par les Releases** : *Releases → Draft a new release*, créer le tag `v1.3.0`, écrire les nouveautés puis **Publish release** (un brouillon ne déclenche rien) ;
+   - **en ligne de commande** : `git tag -a v1.3.0 -m "Nouveautés…" && git push origin v1.3.0`.
 
-Le workflow vérifie que le tag correspond à la version, construit l'installeur, le **signe** et publie la *release* avec `latest.json`. Le message du tag devient la note de version affichée dans l'application. Les push sur `main` sans tag produisent seulement un installeur de test (artefact).
+Le workflow vérifie que la version n'est pas déjà publiée et que le tag correspond à `tauri.conf.json`. Il construit l'installeur, le **signe** et publie la *release* avec `latest.json`. Les nouveautés saisies deviennent la note affichée dans l'application. Les push sur `main` produisent seulement un installeur de test (artefact).
 
 ## Développer dans un navigateur (toutes plateformes)
 

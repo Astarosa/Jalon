@@ -67,17 +67,17 @@ jobs:
       - name: Contrôles avant publication
         shell: bash
         env:
-          PUBKEY: ${{ vars.TAURI_UPDATER_PUBKEY }}
           HAS_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
         run: |
           V=$(node -p "require('./apps/local/src-tauri/tauri.conf.json').version")
           if [ "v$V" != "$GITHUB_REF_NAME" ]; then
             echo "::error::Le tag $GITHUB_REF_NAME ne correspond pas à la version $V de tauri.conf.json (npm run version:set)"; exit 1
           fi
-          [ -n "$PUBKEY" ] || { echo "::error::Variable de dépôt TAURI_UPDATER_PUBKEY manquante (voir README)"; exit 1; }
-          [ "$HAS_KEY" = "true" ] || { echo "::error::Secret TAURI_SIGNING_PRIVATE_KEY manquant (voir README)"; exit 1; }
-          # Configuration de publication : clé publique + artefacts de mise à jour signés
-          node -e "require('fs').writeFileSync('apps/local/src-tauri/tauri.release.conf.json', JSON.stringify({bundle:{createUpdaterArtifacts:true},plugins:{updater:{pubkey:process.env.PUBKEY}}}))"
+          PUB=$(node -p "require('./apps/local/src-tauri/tauri.conf.json').plugins.updater.pubkey")
+          [ -n "$PUB" ] || { echo "::error::Clé publique absente de tauri.conf.json (plugins.updater.pubkey)"; exit 1; }
+          [ "$HAS_KEY" = "true" ] || { echo "::error::Secret de dépôt TAURI_SIGNING_PRIVATE_KEY manquant (voir README)"; exit 1; }
+          # Publication : génère aussi les fichiers de mise à jour signés (.sig) et latest.json
+          node -e "require('fs').writeFileSync('apps/local/src-tauri/tauri.release.conf.json', JSON.stringify({bundle:{createUpdaterArtifacts:true}}))"
 
       - name: Notes de version (message du tag)
         id: notes

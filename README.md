@@ -74,12 +74,11 @@ Les mises à jour sont **signées** : l'application refuse tout fichier dont la 
    npx tauri signer generate -w "$env:USERPROFILE\.tauri\jalon.key"
    ```
    Deux fichiers sont créés : `jalon.key` (clé **privée**) et `jalon.key.pub` (clé publique).
-2. Sur GitHub, dans *Settings → Secrets and variables → Actions* :
-   - onglet **Secrets**, *New repository secret* :
-     - `TAURI_SIGNING_PRIVATE_KEY` = contenu complet de `jalon.key` ;
-     - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` = le mot de passe choisi ;
-   - onglet **Variables**, *New repository variable* :
-     - `TAURI_UPDATER_PUBKEY` = contenu de `jalon.key.pub`.
+2. Sur GitHub, dans *Settings → Secrets and variables → Actions*, onglet **Secrets**, section *Repository secrets* (pas les environnements) :
+   - `TAURI_SIGNING_PRIVATE_KEY` = contenu complet de `jalon.key` ;
+   - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` = le mot de passe choisi.
+
+   La clé **publique** (`jalon.key.pub`) n'est pas secrète : elle est écrite dans `apps/local/src-tauri/tauri.conf.json` (`plugins.updater.pubkey`).
 3. Rendre le dépôt **public** (*Settings → General → Danger Zone → Change visibility*). Le fichier `latest.json` et les installeurs doivent être téléchargeables sans compte.
 4. Conserver `jalon.key` et son mot de passe en lieu sûr (gestionnaire de mots de passe). **Si la clé est perdue, les postes installés ne peuvent plus être mis à jour automatiquement** : il faudra réinstaller à la main une version signée avec une nouvelle clé.
 
